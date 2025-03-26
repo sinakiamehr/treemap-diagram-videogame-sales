@@ -3,9 +3,7 @@ import * as d3 from 'd3'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
   const [data, setData] = useState([])
-  //useRef hook to store the svg element
   const svgRef = useRef()
 
   useEffect(() => {
@@ -22,81 +20,60 @@ function App() {
     fetchData()
   }, [])
 
-  
-
-
-  //useEffect hook to draw the svg
   useEffect(() => {
-     if (data.length === 0) {
-      return
-    }
+    if (data.length === 0) return
 
-    //clear the previous svg
     d3.select(svgRef.current).selectAll('*').remove()
 
-   //set the dimensions of the svg
-    const width = 1000
-    const height = 600
+    const width = 1200
+    const height = 900
     const padding = 60
 
-    //create the svg element
     const svg = d3.select(svgRef.current)
-    .attr('width', width)
-    .attr('height', height)
+      .attr('width', width)
+      .attr('height', height)
 
-    //set the title of the svg
     svg.append('text')
       .attr('x', width / 2)
       .attr('y', padding / 2)
       .attr('text-anchor', 'middle')
       .attr("id", "title")
       .attr('fill', 'white')
-     .text('Title')
+      .text('Video Game Sales')
 
-    //set the description of the svg
     svg.append('text')
-     .attr('x', width / 2)
-     .attr('y', padding / 2 + 20)
-     .attr('text-anchor','middle')
-     .attr("id", "description")
-     .attr('fill', 'white')
-     .text('Description')
+      .attr('x', width / 2)
+      .attr('y', padding / 2 + 20)
+      .attr('text-anchor', 'middle')
+      .attr("id", "description")
+      .attr('fill', 'white')
+      .text('Top 100 Video Game Sales by Platform')
 
-     //create hierarchy of data
-     const root = d3.hierarchy(data)
-     .sum(d => d.value)
-     .sort((a, b) => b.value - a.value)
+    const root = d3.hierarchy(data)
+      .sum(d => d.value)
+      .sort((a, b) => b.value - a.value)
 
-     //create treemap layout
-     const treemap = d3.treemap()
-     .size([width - padding, height - padding])
-    .padding(1)
+    const treemap = d3.treemap()
+      .size([width - padding, height - padding])
+      .padding(1)
 
-     //generate treemap layout
-     treemap(root);
+    treemap(root)
 
-     // Create color scale based on categories
-     const categories = Array.from(new Set(root.leaves().map(d => d.data.category)))
-     const colorScale = d3.scaleOrdinal()
-       .domain(categories)
-       .range(d3.schemeSet3)
+    const categories = Array.from(new Set(root.leaves().map(d => d.data.category)))
+    const colorScale = d3.scaleOrdinal()
+      .domain(categories)
+      .range(d3.schemeSet3)
 
-     // Create tiles
-     const cell = svg
+    const tooltip = d3.select('#tooltip')
+
+    const cell = svg
       .selectAll("g")
       .data(root.leaves())
       .enter()
       .append("g")
       .attr("transform", d => `translate(${d.x0},${d.y0})`)
 
-     // Add tooltip
-     const tooltip = d3.select('body')
-      .append('div')
-      .attr('id', 'tooltip')
-     .attr('class', 'tooltip')
-     
-
-     cell.append("rect")
+    cell.append("rect")
       .attr("class", "tile")
       .attr("width", d => d.x1 - d.x0)
       .attr("height", d => d.y1 - d.y0)
@@ -105,57 +82,60 @@ function App() {
       .attr("data-category", d => d.data.category)
       .attr("data-value", d => d.data.value)
       .on("mouseover", (event, d) => {
-      tooltip.transition()
-       .duration(200)
-       .style("opacity", 0.9)
-      tooltip.html(`Name: ${d.data.name}<br/>Category: ${d.data.category}<br/>Value: ${d.data.value}`)
-       .style("left", (event.pageX) + "px")
-      .style("top", (event.pageY - 28) + "px")
-      .attr("data-value", d.data.value)
-     })
-     .on("mouseout", () => {
-      tooltip.transition()
-      .duration(500)
-      .style("opacity", 0)
+        tooltip.transition()
+          .duration(200)
+          .style("opacity", 0.9)
+        tooltip.html(`Name: ${d.data.name}<br/>Category: ${d.data.category}<br/>Value: ${d.data.value}`)
+          .style("left", (event.pageX + 10) + "px")
+          .style("top", (event.pageY - 28) + "px")
+          .attr("data-value", d.data.value)
+      })
+      .on("mouseout", () => {
+        tooltip.transition()
+          .duration(500)
+          .style("opacity", 0)
+      })
 
-     })
+    cell.append('text')
+      .selectAll('tspan')
+      .data(d => d.data.name.split(/(?=[A-Z][^A-Z])/g))
+      .enter()
+      .append('tspan')
+      .attr('font-size', '11px')
+      .attr('x', 4)
+      .attr('y', (d, i) => 13 + 10 * i)
+      .text(d => d)
 
-     cell.append("text")
-      .attr("x", 5)
-      .attr("y", 15)
-      .text(d => d.data.name)
-      .attr("fill", "black")
-      .attr("font-size", "12px")
-      .attr("font-weight", "bold")
-      .attr("text-anchor", "start")
+    const legend = svg.append("g")
+      .attr("id", "legend")
+      .attr("transform", `translate(${width - padding * 10}, ${height - padding})`)
+      .selectAll(".legend")
+      .data(categories)
+      .enter()
+      .append("g")
+      .attr("class", "legend")
+      .attr("transform", (d, i) => {
+        const itemsPerColumn = Math.ceil(categories.length / 6);
+        const column = Math.floor(i / itemsPerColumn);
+        const row = i % itemsPerColumn;
+        return `translate(${column * 80}, ${row * 20})`;
+      })
 
-     // Create legend
-     const legend = svg.append("g")
-       .attr("id", "legend")
-       .attr("transform", `translate(${width - 150}, ${padding})`)
-       .selectAll(".legend")
-       .data(categories)
-       .enter()
-       .append("g")
-       .attr("class", "legend")
-       .attr("transform", (d, i) => `translate(0, ${i * 20})`)
+    legend.append("rect")
+      .attr("class", "legend-item")
+      .attr("width", 18)
+      .attr("height", 18)
+      .attr("fill", d => colorScale(d))
 
-     legend.append("rect")
-       .attr("class", "legend-item")
-       .attr("width", 18)
-       .attr("height", 18)
-       .attr("fill", d => colorScale(d))
+    legend.append("text")
+      .attr("x", 24)
+      .attr("y", 9)
+      .attr("dy", "0.35em")
+      .style("text-anchor", "start")
+      .text(d => d)
 
-     legend.append("text")
-       .attr("x", 24)
-       .attr("y", 9)
-       .attr("dy", "0.35em")
-       .style("text-anchor", "start")
-       .text(d => d)
-
-    
-    
   }, [data])
+
   return (
     <>
       <div className='main'>
@@ -165,11 +145,15 @@ function App() {
         </header>
         <div className='container'>
           <svg ref={svgRef}></svg>
+          <div id="tooltip" className="tooltip"></div> {/* Tooltip in DOM */}
         </div>
-             
+        <footer>
+          <p>Coded and Designed by <strong>Sina Kiamehr</strong></p>
+        </footer>
       </div>
     </>
   )
 }
 
 export default App
+
